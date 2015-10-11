@@ -1,0 +1,81 @@
+#!/usr/bin/env node
+
+var req = require('request'),
+    program = require('commander'),
+    htmlparser = require('htmlparser2');
+
+var ffbb = {
+    search:        'http://www.ffbb.com/jouer/recherche-avancee',
+    ajax:          'http://www.ffbb.com/system/ajax',
+    form_id:       'ffbb_prototype_ws_simple_form',
+    form_build_id: 'form-f5j9JbSnN8QXO5Yf27OgbHTHvyhL8b_1LXRyQ5grQoQ',
+    fields: { 'N': 'nom',
+	      'P': 'prenom',
+	      'S': 'sexe',
+	      'D': 'dtNais[date]',
+	      'L': 'numLicence',
+	      'I': 'id_license',
+	      'C': 'lbOrg' }
+};
+
+var parser = new htmlparser.Parser({
+    onclosetag: function(name) {
+	switch(name) {
+	case 'h1':
+	case 'h2':
+	case 'h3':
+	    process.stdout.write('\n');
+	case 'h4':
+	case 'h5':
+	case 'h6':
+	case 'p':
+	case 'tr':
+	case 'thead':
+	    process.stdout.write('\n');
+	    break;
+	case 'th':
+	case 'td':
+	    process.stdout.write('\t');
+	}
+    },
+    ontext: function(text) {
+	process.stdout.write(text.trim());
+    }
+}, { decodeEntities: true });
+
+program
+    .command('licence')
+    .description('Chercher un licencié.')
+    .option('-n <nom>', 'Nom')
+    .option('-p <prenom>', 'Prénom')
+    .option('-s <M/F>', 'Sexe', 'M')
+    .option('-d <date>', 'Date de naissance')
+    .option('-l <num>', 'Numéro de licence')
+    .option('-i <num>', 'Numéro national')
+    .option('-c <club>', 'Club')
+    .action(function(opts) {
+	var form = {
+	    form_id: ffbb.form_id,
+	    form_build_id: ffbb.form_build_id,
+	    email: '',
+	};
+	for (f in ffbb.fields) {
+	    form[ffbb.fields[f]] = opts[f] || '';
+	}
+	
+	req.post({url: ffbb.ajax, form: form}, function(error, res, body) {
+	    if (error) {
+		console.log(error);
+	    } else if (res.statusCode != 200) {
+		console.log(res);
+	    } else {
+		var res = JSON.parse(body);
+		parser.write(res[2].data);
+		parser.end();
+		console.log()
+	    }
+	});
+    });
+
+program
+    .parse(process.argv);

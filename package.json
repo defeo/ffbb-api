@@ -1,0 +1,16 @@
+{
+  "name": "ffbb-api",
+  "version": "0.0.0",
+  "description": "FFBB scraper",
+  "main": "ffbb",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Luca De Feo",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^2.8.1",
+    "htmlparser2": "^3.8.3",
+    "request": "^2.65.0"
+  }
+}
