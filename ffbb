@@ -7,8 +7,9 @@ var req = require('request'),
 var ffbb = {
     search:        'http://www.ffbb.com/jouer/recherche-avancee',
     ajax:          'http://www.ffbb.com/system/ajax',
+    club_lookup:   'http://www.ffbb.com/ffbb-webservice/lookup-club?cd_lbclub=',
     form_id:       'ffbb_prototype_ws_simple_form',
-    form_build_id: 'form-f5j9JbSnN8QXO5Yf27OgbHTHvyhL8b_1LXRyQ5grQoQ',
+    form_build_id: new RegExp('<input type="hidden" name="form_build_id" value="(.+)" />\n<input type="hidden" name="form_id" value="ffbb_prototype_ws_simple_form" />'),
     fields: { 'N': 'nom',
 	      'P': 'prenom',
 	      'S': 'sexe',
@@ -54,25 +55,32 @@ program
     .option('-i <num>', 'Numéro national')
     .option('-c <club>', 'Club')
     .action(function(opts) {
-	var form = {
-	    form_id: ffbb.form_id,
-	    form_build_id: ffbb.form_build_id,
-	    email: '',
-	};
-	for (f in ffbb.fields) {
-	    form[ffbb.fields[f]] = opts[f] || '';
-	}
-	
-	req.post({url: ffbb.ajax, form: form}, function(error, res, body) {
+	req(ffbb.search, function(error, res, body) {
 	    if (error) {
 		console.log(error);
 	    } else if (res.statusCode != 200) {
 		console.log(res);
 	    } else {
-		var res = JSON.parse(body);
-		parser.write(res[2].data);
-		parser.end();
-		console.log()
+		var form = {
+		    form_id: ffbb.form_id,
+		    form_build_id: ffbb.form_build_id.exec(body)[1],
+		};
+		for (f in ffbb.fields) {
+		    form[ffbb.fields[f]] = opts[f] || '';
+		}
+
+		req.post({url: ffbb.ajax, form: form}, function(error, res, body) {
+		    if (error) {
+			console.log(error);
+		    } else if (res.statusCode != 200) {
+			console.log(res);
+		    } else {
+			var res = JSON.parse(body);
+			parser.write(res.pop().data);
+			parser.end();
+			console.log()
+		    }
+		});
 	    }
 	});
     });
