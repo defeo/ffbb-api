@@ -1,89 +1,121 @@
 #!/usr/bin/env node
 
-var req = require('request'),
-    program = require('commander'),
-    htmlparser = require('htmlparser2');
+var req = require("request");
+var program = require("commander");
+var assert = require("assert");
+var Table = require("cli-table");
+var _ = require("lodash");
 
 var ffbb = {
-    search:        'http://www.ffbb.com/jouer/recherche-avancee',
-    ajax:          'http://www.ffbb.com/system/ajax',
-    club_lookup:   'http://www.ffbb.com/ffbb-webservice/lookup-club?cd_lbclub=',
-    form_id:       'ffbb_prototype_ws_simple_form',
-    form_build_id: new RegExp('<input type="hidden" name="form_build_id" value="(.+)" />\n<input type="hidden" name="form_id" value="ffbb_prototype_ws_simple_form" />'),
-    fields: { 'N': 'nom',
-	      'P': 'prenom',
-	      'S': 'sexe',
-	      'D': 'dtNais[date]',
-	      'L': 'numLicence',
-	      'I': 'id_license',
-	      'C': 'lbOrg' }
+  search:        'http://www.ffbb.com/jouer/recherche-avancee',
+  ajax:          'http://www.ffbb.com/system/ajax',
+  club_lookup:   'http://www.ffbb.com/ffbb-webservice/lookup-club?cd_lbclub=',
+  form_id:       'ffbb_prototype_ws_simple_form',
+  form_build_id: new RegExp('<input type="hidden" name="form_build_id" value="(.+)" />\n<input type="hidden" name="form_id" value="ffbb_prototype_ws_simple_form" />'),
+  fields: {
+    'N': 'nom',
+    'P': 'prenom',
+    'S': 'sexe',
+    'D': 'dtNais[date]',
+    'L': 'numLicence',
+    'I': 'id_license',
+    'C': 'lbOrg'
+  }
 };
 
-var parser = new htmlparser.Parser({
-    onclosetag: function(name) {
-	switch(name) {
-	case 'h1':
-	case 'h2':
-	case 'h3':
-	    process.stdout.write('\n');
-	case 'h4':
-	case 'h5':
-	case 'h6':
-	case 'p':
-	case 'tr':
-	case 'thead':
-	    process.stdout.write('\n');
-	    break;
-	case 'th':
-	case 'td':
-	    process.stdout.write('\t');
-	}
-    },
-    ontext: function(text) {
-	process.stdout.write(text.trim());
-    }
-}, { decodeEntities: true });
+var FIELD_NAME_MAPPING = {
+  "nrlicence":        "licenseId",
+  "numNational":      "nationalId",
+  "nom":              "lastName",
+  "prenom":           "firstName",
+  "sexe":             "gender",
+  "dateNaissance":    "birthDate",
+  "nomOrganisme":     "association",
+  "dateQualif":       "qualificationDate",
+  "typeLicence":      "licenseType"
+};
 
-program
-    .command('licence')
-    .description('Chercher un licencié.')
-    .option('-n <nom>', 'Nom')
-    .option('-p <prenom>', 'Prénom')
-    .option('-s <M/F>', 'Sexe', 'M')
-    .option('-d <date>', 'Date de naissance')
-    .option('-l <num>', 'Numéro de licence')
-    .option('-i <num>', 'Numéro national')
-    .option('-c <club>', 'Club')
-    .action(function(opts) {
-	req(ffbb.search, function(error, res, body) {
-	    if (error) {
-		console.log(error);
-	    } else if (res.statusCode != 200) {
-		console.log(res);
-	    } else {
-		var form = {
-		    form_id: ffbb.form_id,
-		    form_build_id: ffbb.form_build_id.exec(body)[1],
-		};
-		for (f in ffbb.fields) {
-		    form[ffbb.fields[f]] = opts[f] || '';
-		}
+var FIELD_NAME_LABEL = {
+  "licenseId":          "N° national",
+  "nationalId":         "N° licence",
+  "lastName":           "Nom",
+  "firstName":          "Prénom",
+  "gender":             "Sexe",
+  "birthDate":          "Date naissance",
+  "association":        "Club",
+  "qualificationDate":  "Date qualif.",
+  "licenseType":        "Type lic."
+};
 
-		req.post({url: ffbb.ajax, form: form}, function(error, res, body) {
-		    if (error) {
-			console.log(error);
-		    } else if (res.statusCode != 200) {
-			console.log(res);
-		    } else {
-			var res = JSON.parse(body);
-			parser.write(res.pop().data);
-			parser.end();
-			console.log()
-		    }
-		});
-	    }
-	});
+function parseSearchResult(blob) {
+  var regex =  /<td><div class="(\w+)">(?:<font(?:.*)">)?(.*)(?:<\/font>)?<\/div><\/td>/g;
+  var items = [], match;
+  while (match = regex.exec(blob)) {
+    // TODO: fix regex
+    var hackedField = match[2].replace("</font>", "");
+    items.push([match[1], hackedField]);
+  }
+  if (!items) { return; }
+
+  items = _.chunk(items, _.keys(FIELD_NAME_MAPPING).length);
+
+  return _.map(items, function(item) {
+    var res = {};
+    _.each(item, function(payload) {
+      var fieldName = FIELD_NAME_MAPPING[payload[0]];
+      assert(fieldName, "should match a field name");
+      res[fieldName] = payload[1];
     });
+    return res;
+  });
+}
+
+function searchLicense(opts) {
+  req(ffbb.search, function(error, res, body) {
+    if (error) {
+      console.log(error);
+    } else if (res.statusCode !== 200) {
+      console.log(res);
+    } else {
+      var form = {
+        form_id: ffbb.form_id,
+        form_build_id: ffbb.form_build_id.exec(body)[1],
+      };
+      for (f in ffbb.fields) {
+        form[ffbb.fields[f]] = opts[f] || '';
+      }
+
+      req.post({ url: ffbb.ajax, form: form }, function(error, res, body) {
+        if (error) {
+          console.log(error);
+        } else if (res.statusCode != 200) {
+          console.log(res);
+        } else {
+          var res = JSON.parse(body);
+          var htmlOutput = res.pop().data;
+
+          var licenses = parseSearchResult(htmlOutput);
+          var head = _.values(FIELD_NAME_LABEL);
+          var table = new Table({ head: head });
+          _.each(licenses, function(license) { return table.push(_.values(license)); });
+          console.log(table.toString());
+        }
+      });
+    }
+  });
+}
 
 program
-    .parse(process.argv);
+  .command('license')
+  .description('Chercher un licencié.')
+  .option('-n <nom>', 'Nom')
+  .option('-p <prenom>', 'Prénom')
+  .option('-s <M/F>', 'Sexe', 'M')
+  .option('-d <date>', 'Date de naissance')
+  .option('-l <num>', 'Numéro de licence')
+  .option('-i <num>', 'Numéro national')
+  .option('-c <club>', 'Club')
+  .action(searchLicense);
+
+program
+  .parse(process.argv);
