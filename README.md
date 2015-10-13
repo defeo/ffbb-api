@@ -19,11 +19,11 @@ npm install
 ### Getting a license number
 
 ~~~
-> ./ffbb licence -h
+> ./ffbb license -h
 ~~~
 
 ~~~
-> ./ffbb licence -n Parker -p Tony 
+> ./ffbb license -n Parker -p Tony 
 1 licencié trouvé
 
 N° national	N° licence	Nom	Prénom	Sexe	Date naissance	Club	Date qualif.	Type lic.	
