@@ -4,7 +4,7 @@
   "description": "FFBB scraper",
   "main": "ffbb",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "standard ffbb"
   },
   "author": "Luca De Feo",
   "license": "ISC",
@@ -12,5 +12,8 @@
     "commander": "^2.8.1",
     "htmlparser2": "^3.8.3",
     "request": "^2.65.0"
+  },
+  "devDependencies": {
+    "standard": "^5.3.1"
   }
 }
