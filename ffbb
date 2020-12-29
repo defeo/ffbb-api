@@ -98,16 +98,17 @@ function fetchLicenseCSRF (query, next) {
   for (var f in SCRAPER.searchFormFields) {
     form[SCRAPER.searchFormFields[f]] = query[f] || ''
   }
+
   req.post({ url: URLS.ajax, form: form }, function (error, res, body) {
     if (error) {
       next(error)
     } else if (res.statusCode !== 200) {
       next(new Error('Wrong URL: ' + URLS.search), res)
     } else {
-      var json = JSON.parse(body)
-      var htmlOutput = json.pop().data
+      var json = JSON.parse(body);
+      htmlOutput = json.find((elem) => elem != null && elem.command == 'insert');
 
-      next(null, parseSearchResult(htmlOutput))
+      next(null, parseSearchResult(htmlOutput.data))
     }
   })
 }
