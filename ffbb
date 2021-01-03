@@ -105,9 +105,9 @@ function fetchLicenseCSRF (query, next) {
       next(new Error('Wrong URL: ' + URLS.search), res)
     } else {
       var json = JSON.parse(body)
-      var htmlOutput = json.pop().data
+      var htmlOutput = json.find((elem) => elem != null && elem.command === 'insert')
 
-      next(null, parseSearchResult(htmlOutput))
+      next(null, parseSearchResult(htmlOutput.data))
     }
   })
 }
